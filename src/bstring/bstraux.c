@@ -1135,3 +1135,24 @@ void * parm;
 	return parm;
 }
 
+
+// Values for a 32 bit hash. Note hash_val_t is now fixed to uint32_t.
+static const unsigned int FNV_PRIME = 16777619;
+static const unsigned int FNV_OFFSET_BASIS = 2166136261;
+
+// FNV1a hash from http://isthe.com/chongo/tech/comp/fnv/
+uint32_t bstr_hash_fun(const void *kv)
+{
+    bstring key = (bstring)kv;
+    const unsigned char *str = (const unsigned char *)bdata(key);
+
+    uint32_t acc = FNV_OFFSET_BASIS;
+
+    while(*str) {
+        acc ^= *str;
+        acc *= FNV_PRIME;
+        str++;
+    }
+
+    return acc;
+}
