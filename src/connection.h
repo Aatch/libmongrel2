@@ -4,6 +4,7 @@
 #include <zmq.h>
 #include "bstring.h"
 #include "core.h"
+#include "request.h"
 
 typedef struct m2_connection {
     const_bstring sender_id;

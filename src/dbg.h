@@ -13,10 +13,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-// For handling the format attribute
-#ifndef __GNUC__
-# define __attribute__(x) // Nothing
-#endif
+#include "macros.h"
 
 void fprintf_with_timestamp(FILE *log_file, const char *format, ...) __attribute__((format(printf,2,3)));
 

@@ -137,8 +137,8 @@ extern int btrimws (bstring b);
 #endif
 
 extern bstring bformat (const char * fmt, ...) __attribute__((format(printf, 1, 2)));
-extern int bformata (bstring b, const char * fmt, ...) __attribute__((format(printf, 1, 2)));
-extern int bassignformat (bstring b, const char * fmt, ...) __attribute__((format(printf, 1, 2)));
+extern int bformata (bstring b, const char * fmt, ...) __attribute__((format(printf, 2, 3)));
+extern int bassignformat (bstring b, const char * fmt, ...) __attribute__((format(printf, 2, 3)));
 extern int bvcformata (bstring b, int count, const char * fmt, va_list arglist);
 
 #define bvformata(ret, b, fmt, lastarg) { \
