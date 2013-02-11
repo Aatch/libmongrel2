@@ -34,6 +34,7 @@
 
 #include "adt/darray.h"
 #include "mem/halloc.h"
+#include <string.h>
 #include <assert.h>
 
 
@@ -41,7 +42,6 @@ darray_t *darray_create(size_t element_size, size_t initial_max)
 {
     darray_t *array = h_malloc(sizeof(darray_t));
     array->max = initial_max;
-    check(array->max > 0, "You must set an initial_max > 0.");
 
     array->contents = h_calloc(sizeof(void *), initial_max);
     hattach(array->contents, array);
@@ -52,9 +52,6 @@ darray_t *darray_create(size_t element_size, size_t initial_max)
 
     return array;
 
-error:
-    if(array) h_free(array);
-    return NULL;
 }
 
 void darray_clear(darray_t *array)
@@ -72,25 +69,17 @@ void darray_clear(darray_t *array)
 static inline int darray_resize(darray_t *array, size_t newsize)
 {
     array->max = newsize;
-    check(array->max > 0, "The newsize must be > 0.");
     array->contents = h_realloc(array->contents, array->max * sizeof(void *));
     return 0;
-error:
-    return -1;
 }
 
 int darray_expand(darray_t *array)
 {
     size_t old_max = array->max;
-    check(darray_resize(array, array->max + array->expand_rate) == 0,
-            "Failed to expand array to new size: %d",
-            array->max + (int)array->expand_rate);
 
     memset(array->contents + old_max, 0, array->expand_rate + 1);
     return 0;
 
-error:
-    return -1;
 }
 
 int darray_contract(darray_t *array)
@@ -126,7 +115,6 @@ int darray_push(darray_t *array, void *el)
 
 void *darray_pop(darray_t *array)
 {
-    check(array->end - 1 >= 0, "Attempt to pop from empty array.");
 
     void *el = darray_remove(array, array->end - 1);
     array->end--;
@@ -136,8 +124,6 @@ void *darray_pop(darray_t *array)
     }
 
     return el;
-error:
-    return NULL;
 }
 
 
