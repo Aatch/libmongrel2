@@ -25,6 +25,7 @@ typedef enum {
     m2_type_null    = '~',
     m2_type_dict    = '}',
     m2_type_list    = ']',
+    m2_type_invalid = 'Z',
 } m2_variant_tag;
 
 extern inline m2_variant_tag m2_variant_type(void * val);

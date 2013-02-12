@@ -94,7 +94,10 @@ void * m2_variant_dict_get(const void * val, const_bstring key) {
 
     variant_t * dict = (variant_t *)val;
 
-    return hash_lookup(dict->value.dict);
+    return hash_lookup(dict->value.dict, key);
+
+error:
+    return NULL;
 }
 
 int m2_variant_list_append(void * val, void * item) {
@@ -121,7 +124,7 @@ static inline variant_t * parse_integer(const char * data, size_t len) {
     char * end = NULL;
     val->value.integer = strtol( data, &end, 10);
 
-    check(end != NULL && (end - data) == len);
+    check(end != NULL && (size_t)(end - data) == len);
 
     return val;
 
@@ -135,7 +138,7 @@ static inline variant_t * parse_float(const char * data, size_t len) {
     char * end = NULL;
     val->value.fpoint = strtod(data, &end);
 
-    check(end != NULL && (end - data) == len);
+    check(end != NULL && (size_t)(end - data) == len);
 
     return val;
 
@@ -190,7 +193,7 @@ static inline variant_t * parse_dict(const char * data, size_t len) {
         check(item);
         rotate_buffer(data, rest, len, orig_len);
 
-        m2_variant_dict_insert(val, ((variant_t *)key)->value.string, item);
+        m2_variant_dict_set(val, ((variant_t *)key)->value.string, item);
 
         key = NULL;
         item = NULL;
@@ -278,6 +281,8 @@ void * m2_parse_tns(const char * data,
             check(vallen == 0);
             val = variant_val_create(m2_type_null);
             break;
+        case m2_type_invalid:
+            check(0);
     }
 
 

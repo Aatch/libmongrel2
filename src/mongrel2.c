@@ -96,7 +96,7 @@ static void parse_request(m2_request_t * req, void * raw, int msglen) {
 
     unsigned char * data = (unsigned char *)raw;
 
-    bstring uuid, conn_id, path, header, body;
+    bstring uuid, conn_id, path;
     struct tagbstring * strings =
         (struct tagbstring *)malloc(sizeof(struct tagbstring)*5);
 
@@ -202,52 +202,4 @@ int m2_reply(const m2_request_t * req, const_bstring msg) {
         return m2_send(req->conn, req->uuid, req->conn_id, msg);
     return 0;
 }
-
-m2_tns_type_tag m2_tns_type(const void * val) {
-    tns_value_t * tns = (tns_value_t *)val;
-    if (tns) {
-        switch((m2_tns_type_tag) tns->type) {
-            case M2_TNS_STRING:
-                return M2_TNS_STRING;
-            case M2_TNS_NUMBER:
-                return M2_TNS_NUMBER;
-            case M2_TNS_FLOAT:
-                return M2_TNS_FLOAT;
-            case M2_TNS_BOOL:
-                return M2_TNS_BOOL;
-            case M2_TNS_NULL:
-                return M2_TNS_NULL;
-            case M2_TNS_DICT:
-                return M2_TNS_DICT;
-            case M2_TNS_LIST:
-                return M2_TNS_LIST;
-            default:
-                return M2_TNS_INVALID;
-        }
-    }
-
-    return M2_TNS_INVALID;
-}
-
-#define to_type(val, type, field) (m2_tns_type(val) == type ? ((tns_value_t *)val)->value.field : 0)
-
-bstring m2_tns_get_string(const void * val){
-    return to_type(val, M2_TNS_STRING, string);
-}
-long    m2_tns_get_number(const void * val){
-    return to_type(val, M2_TNS_NUMBER, number);
-}
-double  m2_tns_get_float (const void * val){
-    return to_type(val, M2_TNS_FLOAT, fpoint);
-}
-int     m2_tns_get_bool  (const void * val){
-    return to_type(val, M2_TNS_BOOL, boolean);
-}
-void *  m2_tns_get_dict  (const void * val){
-    return to_type(val, M2_TNS_DICT, dict);
-}
-void *  m2_tns_get_list  (const void * val){
-    return to_type(val, M2_TNS_LIST, list);
-}
-
 

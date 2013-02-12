@@ -12,7 +12,7 @@ DOC_DIR := $(BUILD_DIR)/docs
 
 SRC_DIR := src
 
-SRC_FILES := $(wildcard $(SRC_DIR)/**/*.c)
+SRC_FILES := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/**/*.c)
 
 OBJS := $(SRC_FILES:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
@@ -32,10 +32,10 @@ static: $(BUILD_DIR)/libmongrel.a
 include:
 
 clean:
-	@rm -rf $(BUILD_DIR)/*
+	rm -rf $(BUILD_DIR)/*
 
 $(BUILD_DIR)/libmongrel.so: $(OBJS)
-	@$(LD) -shared -lc $(addprefix -l,$(LIBS)) -o $@ $^
+	$(LD) -shared -lc $(addprefix -l,$(LIBS)) -o $@ $^
 
 $(BUILD_DIR)/libmongrel.a: $(OBJS)
 	$(AR) cr $@ $?
@@ -47,5 +47,5 @@ $(OBJS): | dirs $(DIRS)
 dirs:
 	@echo "Making Build Directories"
 $(DIRS):
-	@mkdir -p $@
+	mkdir -p $@
 
