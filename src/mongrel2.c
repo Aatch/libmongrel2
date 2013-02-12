@@ -3,9 +3,11 @@
 #include "adt/hash.h"
 #include "adt/darray.h"
 #include "mem/halloc.h"
-#include "tnetstrings.h"
+#include "variant.h"
 
 #include "mongrel2.h"
+
+static void parse_request(m2_request_t * req, void * raw, int len);
 
 typedef struct ctx {
     void * zmq_ctx;
@@ -85,15 +87,89 @@ m2_request_t * m2_recv(void * conn) {
     req->raw.len = msglen;
     req->raw.data = raw;
 
-    // parse data;
+    parse_request(req, raw, msglen);
 
     return req;
 }
 
-void m2_request_free(m2_request_t * req) {
-    tns_value_t * tns = (tns_value_t *)req->headers;
-    tns_value_destroy(tns);
+static void parse_request(m2_request_t * req, void * raw, int msglen) {
 
+    unsigned char * data = (unsigned char *)raw;
+
+    bstring uuid, conn_id, path, header, body;
+    struct tagbstring * strings =
+        (struct tagbstring *)malloc(sizeof(struct tagbstring)*5);
+
+    uuid    = &strings[0];
+    conn_id = &strings[1];
+    path    = &strings[2];
+
+    // Set up the marker pointers
+    unsigned char * p = data;
+    unsigned char * pe = data+msglen;
+
+    uuid->data = data;
+    uuid->slen = 0;
+    uuid->mlen = -1;
+
+    while (*(p++) != ' ' && p != pe) {
+        ++uuid->slen;
+    }
+
+    if (p == data || p == pe) return;
+
+    uuid->data[uuid->slen] = '\0';
+
+    conn_id->data = p;
+    conn_id->slen = 0;
+    conn_id->mlen = -1;
+    while (*(p++) != ' ' && p != pe) {
+        ++conn_id->slen;
+    }
+
+    if (p == pe) return;
+
+    conn_id->data[conn_id->slen] = '\0';
+
+    path->data = p;
+    path->slen = 0;
+    path->mlen = -1;
+
+    while(*(p++) != ' ' && p != pe) {
+        ++path->slen;
+    }
+
+    if (p == pe) return;
+
+    path->data[path->slen] = '\0';
+
+    size_t len = (pe - p);
+
+    char * rest;
+
+    void * headers = m2_parse_tns((const char *)p,len,&rest);
+
+    if (!headers) return;
+
+    len = (rest - (char *)pe);
+
+    if (len > 0) {
+        void * body = m2_parse_tns((const char *)rest, len, NULL);
+
+        if (body) {
+            req->body = m2_variant_get_string(body);
+        }
+    }
+
+    req->conn_id = conn_id;
+    req->headers = headers;
+    req->path = path;
+    req->uuid = uuid;
+}
+
+void m2_request_free(m2_request_t * req) {
+
+    m2_variant_destroy(req->headers);
     bdestroy(req->body);
     bdestroy(req->conn_id);
     bdestroy(req->path);
@@ -103,14 +179,28 @@ void m2_request_free(m2_request_t * req) {
 }
 
 void * m2_request_get_header(const m2_request_t * req, const_bstring name) {
-    hash_t * headers = (hash_t *)req->headers;
+    return m2_variant_dict_get(req->headers, name);
+}
 
-    hnode_t * node = hash_lookup(headers, name);
+int m2_send(void * conn, const_bstring uuid, const_bstring conn_id, const_bstring msg) {
+    conn_t * connection = (conn_t *)conn;
 
-    if (node) {
-        return node->hash_data;
-    }
-    return NULL;
+    bstring header = bformat("%s %d:%s, ", uuid->data, conn_id->slen, conn_id->data);
+
+    if (msg)
+        bconcat(header, msg);
+
+    int n = zmq_send(connection->send_sock, header->data, header->slen, 0);
+
+    bdestroy(header);
+
+    return n;
+}
+
+int m2_reply(const m2_request_t * req, const_bstring msg) {
+    if (req)
+        return m2_send(req->conn, req->uuid, req->conn_id, msg);
+    return 0;
 }
 
 m2_tns_type_tag m2_tns_type(const void * val) {

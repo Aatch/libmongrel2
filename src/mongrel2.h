@@ -135,72 +135,10 @@ int m2_send(void * conn, const_bstring uuid, const_bstring conn_id, const_bstrin
  *
  * @param req   The request to reply to
  * @param msg   The message to send
+ *
+ * @returns The number of bytes sent or -1 on error
  */
 int m2_reply(const m2_request_t * req, const_bstring msg);
 
-/// Possible TNetstring types
-typedef enum m2_tns_type_e {
-    M2_TNS_STRING   = ',',
-    M2_TNS_NUMBER   = '#',
-    M2_TNS_FLOAT    = '^',
-    M2_TNS_BOOL     = '!',
-    M2_TNS_NULL     = '~',
-    M2_TNS_DICT     = '}',
-    M2_TNS_LIST     = ']',
-    M2_TNS_INVALID  = 'Z',
-} m2_tns_type_tag;
-
-/**
- * Gets the type of \a val.
- *
- * @param val   A TNetstring value
- *
- * @returns the type of the value, or m2_tns_type_tag#M2_TNS_INVALID if \a val is not a
- *          valid TNetstring
- */
-m2_tns_type_tag m2_tns_type(const void * val);
-
-/**
- * Get the value stored in \a val.
- *
- * @param val   A TNetstring value
- * @returns The value. NULL on error.
- */
-bstring m2_tns_get_string(const void * val);
-/**
- * Get the value stored in \a val.
- *
- * @param val   A TNetstring value
- * @returns The value. 0 on error and sets errno.
- */
-long    m2_tns_get_number(const void * val);
-/**
- * Get the value stored in \a val.
- *
- * @param val   A TNetstring value
- * @returns The value. 0 on error and sets errno.
- */
-double  m2_tns_get_float (const void * val);
-/**
- * Get the value stored in \a val.
- *
- * @param val   A TNetstring value
- * @returns The value. 0 on error and sets errno.
- */
-int     m2_tns_get_bool  (const void * val);
-/**
- * Get the value stored in \a val.
- *
- * @param val   A TNetstring value
- * @returns The value. NULL on error.
- */
-void *  m2_tns_get_dict  (const void * val);
-/**
- * Get the value stored in \a val.
- *
- * @param val   A TNetstring value
- * @returns The value. NULL on error.
- */
-void *  m2_tns_get_list  (const void * val);
 
 #endif//_MONGREL2_H_DEF
