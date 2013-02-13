@@ -35,7 +35,7 @@ clean:
 	rm -rf $(BUILD_DIR)/*
 
 $(BUILD_DIR)/libmongrel.so: $(OBJS)
-	$(LD) -shared -lc $(addprefix -l,$(LIBS)) -o $@ $^
+	$(LD) --export-dynamic -shared -lc $(addprefix -l,$(LIBS)) -o $@ $^
 
 $(BUILD_DIR)/libmongrel.a: $(OBJS)
 	$(AR) cr $@ $?
