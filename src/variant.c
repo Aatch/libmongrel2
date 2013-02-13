@@ -2,8 +2,7 @@
 #include "bstring.h"
 #include "adt/hash.h"
 #include "adt/darray.h"
-
-#define check(A) if (!(A)) { goto error; }
+#include "err.h"
 
 typedef struct {
     m2_variant_tag type;
@@ -18,35 +17,44 @@ typedef struct {
 } variant_t;
 
 m2_variant_tag m2_variant_get_type(const void * val) {
-    return ((variant_t *)val)->type;
+    if (val) {
+        return ((variant_t *)val)->type;
+    } else {
+        return m2_type_invalid;
+    }
 }
 
 void m2_variant_destroy(void * val) {
 
-    variant_t * var = (variant_t *) val;
+    if (val) {
+        variant_t * var = (variant_t *) val;
 
-    switch(var->type) {
-        case m2_type_string:
-            bdestroy(var->value.string);
-            break;
-        case m2_type_dict:
-            hash_free_nodes(var->value.dict);
-            hash_destroy(var->value.dict);
-        case m2_type_list:
-            darray_clear_destroy(var->value.list);
-        default:
-            break;
+        switch(var->type) {
+            case m2_type_string:
+                bdestroy(var->value.string);
+                break;
+            case m2_type_dict:
+                hash_free_nodes(var->value.dict);
+                hash_destroy(var->value.dict);
+            case m2_type_list:
+                darray_clear_destroy(var->value.list);
+            default:
+                break;
+        }
+
+        free(val);
     }
-
-    free(val);
 }
 
 static inline variant_t * variant_val_create(m2_variant_tag tag) {
     variant_t * val = (variant_t *)malloc(sizeof(*val));
+    check_mem(val);
 
     val->type = tag;
 
     return val;
+error:
+    return NULL;
 }
 
 static hnode_t * hnode_alloc(void * unused) {
@@ -58,21 +66,26 @@ static hnode_t * hnode_alloc(void * unused) {
 static void hnode_free(hnode_t * node, void * unused) {
     (void)unused;
 
-    bdestroy((bstring)hnode_getkey(node));
-    m2_variant_destroy(hnode_get(node));
-    free(node);
+    if (node) {
+        bdestroy((bstring)hnode_getkey(node));
+        m2_variant_destroy(hnode_get(node));
+        free(node);
+    }
 }
 
 void * m2_variant_dict_new() {
-    variant_t * val = variant_val_create(m2_type_dict);
-    val->value.dict = hash_create(HASHCOUNT_T_MAX, (hash_comp_t)bstrcmp, (hash_fun_t)bstr_hash_fun);
-    hash_set_allocator(val->value.dict, hnode_alloc, hnode_free, NULL);
+    variant_t * val = NULL;
+    val = variant_val_create(m2_type_dict);
+    if (val) {
+        val->value.dict = hash_create(HASHCOUNT_T_MAX, (hash_comp_t)bstrcmp, (hash_fun_t)bstr_hash_fun);
+        hash_set_allocator(val->value.dict, hnode_alloc, hnode_free, NULL);
+    }
 
     return val;
 }
 
 int m2_variant_dict_set(void * val, const_bstring key, void * item) {
-    check(m2_variant_get_type(val) == m2_type_dict);
+    check(m2_variant_get_type(val) == m2_type_dict, "val is not a dictionary");
 
     variant_t * dict = (variant_t *)val;
 
@@ -90,7 +103,7 @@ error:
 }
 
 void * m2_variant_dict_get(const void * val, const_bstring key) {
-    check(m2_variant_get_type(val) == m2_type_dict);
+    check(m2_variant_get_type(val) == m2_type_dict, "val is not a dictionary");
 
     variant_t * dict = (variant_t *)val;
 
@@ -101,7 +114,7 @@ error:
 }
 
 int m2_variant_list_append(void * val, void * item) {
-    check(m2_variant_get_type(val) == m2_type_list);
+    check(m2_variant_get_type(val) == m2_type_list, "val is not a list");
 
     variant_t * list = (variant_t *)val;
 
@@ -114,17 +127,20 @@ error:
 
 static inline variant_t * parse_string(const char * data, size_t len) {
     variant_t * val = variant_val_create(m2_type_string);
-    val->value.string = blk2bstr(data, len);
+    if (val)
+        val->value.string = blk2bstr(data, len);
 
     return val;
 }
 
-static inline variant_t * parse_integer(const char * data, size_t len) {
+static inline variant_t * parse_integer(const char * data, size_t len, int base) {
     variant_t * val = variant_val_create(m2_type_integer);
-    char * end = NULL;
-    val->value.integer = strtol( data, &end, 10);
+    if (val) {
+        char * end = NULL;
+        val->value.integer = strtol( data, &end, base);
 
-    check(end != NULL && (size_t)(end - data) == len);
+        check(end != NULL && (size_t)(end - data) == len, "Error parsing integer");
+    }
 
     return val;
 
@@ -135,10 +151,12 @@ error:
 
 static inline variant_t * parse_float(const char * data, size_t len) {
     variant_t * val = variant_val_create(m2_type_float);
-    char * end = NULL;
-    val->value.fpoint = strtod(data, &end);
+    if (val) {
+        char * end = NULL;
+        val->value.fpoint = strtod(data, &end);
 
-    check(end != NULL && (size_t)(end - data) == len);
+        check(end != NULL && (size_t)(end - data) == len, "Error parsing float");
+    }
 
     return val;
 
@@ -151,12 +169,12 @@ static inline variant_t * parse_bool(const char * data, size_t len) {
     const char * i = data;
     int d = 0;
     if (len == 4) {
-        check(*(i++) != 't' || *(i++) != 'r' || *(i++) != 'u' || *(i++) != 'e');
+        check(*(i++) != 't' || *(i++) != 'r' || *(i++) != 'u' || *(i++) != 'e', "Invalid bool value");
         d = 1;
     } else if (len == 5) {
-        check(*(i++) != 'f' || *(i++) != 'a' || *(i++) != 'l' || *(i++) != 's' || *(i++) != 'e');
+        check(*(i++) != 'f' || *(i++) != 'a' || *(i++) != 'l' || *(i++) != 's' || *(i++) != 'e', "Invalid bool value");
     } else {
-        check(0);
+        check(0, "Invalid bool value");
     }
 
     variant_t * val = variant_val_create(m2_type_boolean);
@@ -170,7 +188,7 @@ error:
 
 #define rotate_buffer(data,rest,len,orig_len) {\
     len = len - (rest - data);\
-    check(len < orig_len);\
+    check(len < orig_len, "Buffer math went wonky");\
     data = rest;\
 }
 
@@ -185,12 +203,12 @@ static inline variant_t * parse_dict(const char * data, size_t len) {
 
     while (len > 0) {
         key = m2_parse_tns(data, len, &rest);
-        check(key);
-        check(m2_variant_get_type(key) == m2_type_string);
+        check(key, "Error parsing key");
+        check(m2_variant_get_type(key) == m2_type_string, "key must be a string");
         rotate_buffer(data, rest, len, orig_len);
 
         item = m2_parse_tns(data, len, &rest);
-        check(item);
+        check(item, "Error parsing item");
         rotate_buffer(data, rest, len, orig_len);
 
         m2_variant_dict_set(val, ((variant_t *)key)->value.string, item);
@@ -218,7 +236,7 @@ static inline variant_t * parse_list(const char * data, size_t len) {
 
     while (len > 0) {
         item = m2_parse_tns(data, len, &rest);
-        check(item);
+        check(item, "Error parsing item");
         rotate_buffer(data, rest, len, orig_len);
 
         m2_variant_list_append(val, item);
@@ -241,15 +259,16 @@ void * m2_parse_tns(const char * data,
     const char * end = data+len;
     m2_variant_tag type = m2_type_null;
 
-    check(data && len);
+    check(data, "Data cannot be NULL");
+    check(len, "Len must be greater than 0");
 
     char * valstr = NULL;
     long vallen = strtol(data, &valstr, 10);
 
     //Checks!
-    check(vallen >= 0);
-    check(end >= (valstr+(vallen+1)))
-    check(valstr[0] == ':')
+    check(vallen >= 0, "Invalid size");
+    check(end >= (valstr+(vallen+1)), "Parsed value is greater than buffer size")
+    check(valstr[0] == ':', "Invalid TNetstring, expected ':' got %c", valstr[0])
     valstr++;
 
     type = valstr[vallen];
@@ -263,7 +282,7 @@ void * m2_parse_tns(const char * data,
             val = parse_string(valstr, vallen);
             break;
         case m2_type_integer:
-            val = parse_integer(valstr, vallen);
+            val = parse_integer(valstr, vallen, 10);
             break;
         case m2_type_float:
             val = parse_float(valstr, vallen);
@@ -278,11 +297,12 @@ void * m2_parse_tns(const char * data,
             val = parse_list(valstr, vallen);
             break;
         case m2_type_null:
-            check(vallen == 0);
+            check(vallen == 0, "Null must be represented as '0:~'");
             val = variant_val_create(m2_type_null);
             break;
         case m2_type_invalid:
-            check(0);
+        default:
+            check(0, "Invalid type");
     }
 
 
