@@ -8,7 +8,7 @@
 
 #include "mongrel2.h"
 
-static void parse_request(m2_request_t * req, void * raw, int len);
+static int parse_request(m2_request_t * req, void * raw, int len);
 
 typedef struct ctx {
     void * zmq_ctx;
@@ -75,8 +75,8 @@ void * m2_connection_open(void * ctx, const_bstring uuid,
     send_sock = zmq_socket(context->zmq_ctx, ZMQ_PUB);
     check(recv_sock, "Error creating sending socket")
 
-    check(zmq_connect(recv_sock, bdata(recv_addr)), "Error connecting receive socket to `%s'", bdata(recv_addr));
-    check(zmq_connect(send_sock, bdata(send_addr)), "Error connecting send socket to `%s'", bdata(send_addr));
+    check(zmq_connect(recv_sock, bdata(recv_addr)) == 0, "Error connecting receive socket to `%s'", bdata(recv_addr));
+    check(zmq_connect(send_sock, bdata(send_addr)) == 0, "Error connecting send socket to `%s'", bdata(send_addr));
 
     conn->recv_sock = recv_sock;
     conn->send_sock = send_sock;
@@ -108,6 +108,8 @@ m2_request_t * m2_recv(void * conn) {
     m2_request_t * req = NULL;
     void * raw = NULL;
 
+    check(conn, "Not valid connection");
+
     req = h_malloc(sizeof(*req));
     check_mem(req);
     hattach(req, conn);
@@ -127,6 +129,7 @@ m2_request_t * m2_recv(void * conn) {
     req->raw.data = raw;
 
     parse_request(req, raw, msglen);
+    if (!req) goto error;
     return req;
 
 error:
@@ -136,7 +139,7 @@ error:
     return NULL;
 }
 
-static void parse_request(m2_request_t * req, void * raw, int msglen) {
+static int parse_request(m2_request_t * req, void * raw, int msglen) {
 
     unsigned char * data = (unsigned char *)raw;
 
@@ -165,7 +168,7 @@ static void parse_request(m2_request_t * req, void * raw, int msglen) {
         ++uuid->slen;
     }
 
-    if (p == data || p == pe) return;
+    check(!(p == data || p == pe), "Pointer madness!");
 
     uuid->data[uuid->slen] = '\0';
 
@@ -176,7 +179,7 @@ static void parse_request(m2_request_t * req, void * raw, int msglen) {
         ++conn_id->slen;
     }
 
-    if (p == pe) return;
+    check(p < pe, "Pointer madness");
 
     conn_id->data[conn_id->slen] = '\0';
 
@@ -188,22 +191,23 @@ static void parse_request(m2_request_t * req, void * raw, int msglen) {
         ++path->slen;
     }
 
-    if (p == pe) return;
+    check(p != pe, "Pointer madness");
 
     path->data[path->slen] = '\0';
 
     size_t len = (pe - p);
 
     char * rest;
+    char err[1024];
 
     headers = m2_parse_tns((const char *)p,len,&rest);
-    check(headers, "Error parsing request headers");
+    check(headers, "Error parsing request headers: (%s)", m2_strerror_cpy(err));
 
-    len = (rest - (char *)pe);
+    len = ((char *)pe - rest);
 
     if (len > 0) {
         body = m2_parse_tns((const char *)rest, len, NULL);
-        check(body, "Error parsing request body");
+        check(body, "Error parsing request body: (%s)", m2_strerror_cpy(err));
 
         if (body) {
             req->body = m2_variant_get_string(body);
@@ -215,10 +219,14 @@ static void parse_request(m2_request_t * req, void * raw, int msglen) {
     req->path = path;
     req->uuid = uuid;
 
+    return 1;
+
 error:
     if (strings) free(strings);
     if (headers) m2_variant_destroy(headers);
     if (body) m2_variant_destroy(body);
+
+    return 0;
 }
 
 void m2_request_free(m2_request_t * req) {

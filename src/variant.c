@@ -16,7 +16,7 @@ typedef struct {
     } value;
 } variant_t;
 
-m2_variant_tag m2_variant_get_type(const void * val) {
+m2_variant_tag m2_variant_type(const void * val) {
     if (val) {
         return ((variant_t *)val)->type;
     } else {
@@ -36,8 +36,10 @@ void m2_variant_destroy(void * val) {
             case m2_type_dict:
                 hash_free_nodes(var->value.dict);
                 hash_destroy(var->value.dict);
+                break;
             case m2_type_list:
                 darray_clear_destroy(var->value.list);
+                break;
             default:
                 break;
         }
@@ -73,6 +75,23 @@ static void hnode_free(hnode_t * node, void * unused) {
     }
 }
 
+void * m2_variant_string_new() {
+    variant_t * val = variant_val_create(m2_type_string);
+    return val;
+}
+void * m2_variant_integer_new() {
+    return variant_val_create(m2_type_integer);
+}
+void * m2_variant_float_new() {
+    return variant_val_create(m2_type_float);
+}
+void * m2_variant_bool_new() {
+    return variant_val_create(m2_type_boolean);
+}
+void * m2_variant_null_new() {
+    return variant_val_create(m2_type_null);
+}
+
 void * m2_variant_dict_new() {
     variant_t * val = NULL;
     val = variant_val_create(m2_type_dict);
@@ -84,8 +103,18 @@ void * m2_variant_dict_new() {
     return val;
 }
 
+void * m2_variant_list_new() {
+    variant_t * val = NULL;
+    val = variant_val_create(m2_type_list);
+    if (val) {
+        val->value.list = darray_create(sizeof(variant_t), 32);
+    }
+
+    return val;
+}
+
 int m2_variant_dict_set(void * val, const_bstring key, void * item) {
-    check(m2_variant_get_type(val) == m2_type_dict, "val is not a dictionary");
+    check(m2_variant_type(val) == m2_type_dict, "val is not a dictionary");
 
     variant_t * dict = (variant_t *)val;
 
@@ -103,18 +132,18 @@ error:
 }
 
 void * m2_variant_dict_get(const void * val, const_bstring key) {
-    check(m2_variant_get_type(val) == m2_type_dict, "val is not a dictionary");
+    check(m2_variant_type(val) == m2_type_dict, "val is not a dictionary");
 
     variant_t * dict = (variant_t *)val;
 
-    return hash_lookup(dict->value.dict, key);
+    return hash_lookup(dict->value.dict, key)->hash_data;
 
 error:
     return NULL;
 }
 
 int m2_variant_list_append(void * val, void * item) {
-    check(m2_variant_get_type(val) == m2_type_list, "val is not a list");
+    check(m2_variant_type(val) == m2_type_list, "val is not a list");
 
     variant_t * list = (variant_t *)val;
 
@@ -123,6 +152,13 @@ int m2_variant_list_append(void * val, void * item) {
     return 1;
 error:
     return 0;
+}
+
+bstring m2_variant_get_string(void * value) {
+    check(m2_variant_type(value) == m2_type_string, "Type is not a string");
+    return ((variant_t *)value)->value.string;
+error:
+    return NULL;
 }
 
 static inline variant_t * parse_string(const char * data, size_t len) {
@@ -204,7 +240,7 @@ static inline variant_t * parse_dict(const char * data, size_t len) {
     while (len > 0) {
         key = m2_parse_tns(data, len, &rest);
         check(key, "Error parsing key");
-        check(m2_variant_get_type(key) == m2_type_string, "key must be a string");
+        check(m2_variant_type(key) == m2_type_string, "key must be a string");
         rotate_buffer(data, rest, len, orig_len);
 
         item = m2_parse_tns(data, len, &rest);
@@ -267,7 +303,7 @@ void * m2_parse_tns(const char * data,
 
     //Checks!
     check(vallen >= 0, "Invalid size");
-    check(end >= (valstr+(vallen+1)), "Parsed value is greater than buffer size")
+    check(end >= (valstr+(vallen)), "Parsed value (%ld) is greater than buffer size", vallen)
     check(valstr[0] == ':', "Invalid TNetstring, expected ':' got %c", valstr[0])
     valstr++;
 
@@ -311,3 +347,4 @@ void * m2_parse_tns(const char * data,
 error:
     return NULL;
 }
+

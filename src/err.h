@@ -28,6 +28,8 @@ int m2_errno();
  */
 char * m2_strerror();
 
+char * m2_strerror_cpy(char * dest);
+
 /**
  * Prints the message from m2_strerror to stderr
  */
@@ -39,7 +41,7 @@ void m2_set_errstr(char * message, ...) __attribute__((format(printf, 1, 2)));
 void m2_set_errno(int n);
 
 
-#define check(A,M,...) if (!(A)) { m2_set_errno(-1); m2_set_errstr((M), ##__VA_ARGS__); goto error; } else { m2_set_errno(0); }
+#define check(A,M,...) if (!(A)) { m2_set_errno(-1); m2_set_errstr((M), ##__VA_ARGS__); assert(!(A)); goto error; } else { m2_set_errno(0); }
 #define check_mem(A) check(A, "Out of memory")
 
 #endif

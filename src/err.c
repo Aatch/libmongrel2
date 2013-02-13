@@ -19,6 +19,11 @@ char * m2_strerror() {
     return errno ? errstr : NULL;
 }
 
+char * m2_strerror_cpy(char * dest) {
+    strcpy(dest, errstr);
+    return dest;
+}
+
 void m2_set_errstr(char * message, ...) {
     if (!message) {
         errstr[0] = '\0';
@@ -27,5 +32,11 @@ void m2_set_errstr(char * message, ...) {
         va_start(args, message);
         vsnprintf(errstr, 1024, message, args);
         va_end(args);
+    }
+}
+
+void m2_perror() {
+    if (errno) {
+        fprintf(stderr, "%s\n", errstr);
     }
 }

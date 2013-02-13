@@ -28,7 +28,7 @@ typedef enum {
     m2_type_invalid = 'Z',
 } m2_variant_tag;
 
-extern inline m2_variant_tag m2_variant_type(void * val);
+extern inline m2_variant_tag m2_variant_type(const void * val);
 
 void * m2_variant_string_new();
 void * m2_variant_integer_new();
