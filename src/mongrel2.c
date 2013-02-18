@@ -102,7 +102,7 @@ void m2_connection_close(void * conn) {
     }
 }
 
-#define BUFFER_SIZE 256 * 1024 //256k per request? eh.
+#define BUFFER_SIZE 4 * 1024 //4k per request
 m2_request_t * m2_recv(void * conn) {
 
     m2_request_t * req = NULL;
