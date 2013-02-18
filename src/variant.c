@@ -3,6 +3,9 @@
 #include "adt/hash.h"
 #include "adt/darray.h"
 #include "err.h"
+#include "json.h"
+
+#include <stdio.h>
 
 typedef struct {
     m2_variant_tag type;
@@ -44,7 +47,7 @@ void m2_variant_destroy(void * val) {
                 break;
         }
 
-        free(val);
+        h_free(val);
     }
 }
 
@@ -257,7 +260,7 @@ static inline variant_t * tns_parse_dict(const char * data, size_t len) {
         rotate_buffer(data, rest, len, orig_len);
 
         m2_variant_dict_set(val, ((variant_t *)key)->value.string, item);
-        h_free(key);
+        free(key);
 
         key = NULL;
         item = NULL;
@@ -358,6 +361,112 @@ error:
     return NULL;
 }
 
-/* JSON implementation */
+static variant_t * json_val_to_variant(const json_value * jval) {
+    variant_t * val = NULL;
+    json_type t = jval->type;
+    int i = 0;
+    int len = 0;
+    switch(t) {
+        case json_array:
+            val = m2_variant_list_new();
+            len = jval->u.array.length;
+            for (i = 0; i < len; i++) {
+                m2_variant_list_append(val, json_val_to_variant(jval->u.array.values[i]));
+            }
+            break;
+        case json_boolean:
+            val = m2_variant_bool_new();
+            val->value.boolean = jval->u.boolean;
+            break;
+        case json_double:
+            val = m2_variant_float_new();
+            val->value.fpoint = jval->u.dbl;
+            break;
+        case json_integer:
+            val = m2_variant_integer_new();
+            val->value.integer = jval->u.integer;
+            break;
+        case json_none:
+        case json_null:
+            val = m2_variant_null_new();
+            break;
+        case json_object:
+            val = m2_variant_dict_new();
+            len = jval->u.object.length;
+            for (i = 0; i < len; i++) {
+                m2_variant_dict_set(val, bfromcstr(jval->u.object.values[i].name),
+                        json_val_to_variant(jval->u.object.values[i].value));
+            }
+            break;
+        case json_string:
+            val = m2_variant_string_new();
+            val->value.string = bfromcstr(jval->u.string.ptr);
+            break;
+    }
 
+    return val;
+}
 
+void * m2_parse_json(const char * str) {
+    json_value * val = json_parse(str);
+
+    void * v = (void *)json_val_to_variant(val);
+
+    json_value_free(val);
+
+    return v;
+}
+
+void m2_variant_dump_json(void * val) {
+    variant_t * var = (variant_t *)val;
+    int first = 0;
+    switch(var->type) {
+        case m2_type_dict:
+            printf("{ ");
+            hscan_t scan;
+            hnode_t * n;
+            hash_scan_begin(&scan, var->value.dict);
+            while ((n = hash_scan_next(&scan))) {
+                if (first) {
+                    printf(",\n");
+                }
+                first = 1;
+                printf("\"%s\":", ((bstring)n->hash_key)->data);
+                m2_variant_dump_json(n->hash_data);
+            }
+
+            printf(" }");
+            break;
+        case m2_type_boolean:
+            if (var->value.boolean)
+                printf("true");
+            else
+                printf("false");
+            break;
+        case m2_type_float:
+            printf("%e", var->value.fpoint);
+            break;
+        case m2_type_integer:
+            printf("%ld", var->value.integer);
+            break;
+        case m2_type_list:
+            printf("[ ");
+
+            int i = 0;
+            for (i = 0; i < var->value.list->end; i++) {
+                if (first)
+                    printf(",\n");
+                first = 1;
+                m2_variant_dump_json(darray_get(var->value.list, i));
+            }
+            break;
+        case m2_type_null:
+            printf("null");
+            break;
+        case m2_type_string:
+            printf("\"%s\"", var->value.string->data);
+            break;
+        default:
+            break;
+    }
+}

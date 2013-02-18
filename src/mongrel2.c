@@ -204,6 +204,12 @@ static int parse_request(m2_request_t * req, void * raw, int msglen) {
     headers = m2_parse_tns((const char *)p,len,&rest);
     check(headers, "Error parsing request headers: (%s)", m2_strerror_cpy(err));
 
+    if (m2_variant_type(headers) == m2_type_string) {
+        void * h = headers;
+        headers = m2_parse_json((const char *)m2_variant_get_string(headers)->data);
+        m2_variant_destroy(h);
+    }
+
     len = ((char *)pe - rest);
 
     if (len > 0) {

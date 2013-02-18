@@ -31,15 +31,15 @@
 #endif
 
 #ifndef bstr__alloc
-#define bstr__alloc(x) h_malloc (x)
+#define bstr__alloc(x) malloc (x)
 #endif
 
 #ifndef bstr__free
-#define bstr__free(p) h_free (p)
+#define bstr__free(p) free (p)
 #endif
 
 #ifndef bstr__realloc
-#define bstr__realloc(p,x) halloc ((p), (x))
+#define bstr__realloc(p,x) realloc ((p), (x))
 #endif
 
 #ifndef bstr__memcpy
