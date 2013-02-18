@@ -109,8 +109,4 @@ void * m2_parse_json(const char * data);
 // Dumping functions
 void m2_variant_dump_json(void * val);
 
-void m2_variant_dump_tns(void * val);
-
-void m2_variant_dump_pp(void * val);
-
 #endif//_VARIANT_H_DEF
