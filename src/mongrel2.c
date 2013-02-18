@@ -116,7 +116,7 @@ m2_request_t * m2_recv(void * conn) {
 
     raw = h_malloc(BUFFER_SIZE);
     check_mem(raw);
-    hattach(conn, raw);
+    hattach(raw, req);
 
     conn_t * connection = (void *)conn;
 
@@ -149,8 +149,9 @@ static int parse_request(m2_request_t * req, void * raw, int msglen) {
 
     bstring uuid, conn_id, path;
     strings =
-        (struct tagbstring *)malloc(sizeof(struct tagbstring)*3);
+        (struct tagbstring *)h_malloc(sizeof(struct tagbstring)*3);
     check_mem(strings);
+    hattach(strings, req);
 
     uuid    = &strings[0];
     conn_id = &strings[1];
@@ -211,6 +212,7 @@ static int parse_request(m2_request_t * req, void * raw, int msglen) {
 
         if (body) {
             req->body = m2_variant_get_string(body);
+            h_free(body);
         }
     }
 
@@ -222,7 +224,7 @@ static int parse_request(m2_request_t * req, void * raw, int msglen) {
     return 1;
 
 error:
-    if (strings) free(strings);
+    if (strings) h_free(strings);
     if (headers) m2_variant_destroy(headers);
     if (body) m2_variant_destroy(body);
 

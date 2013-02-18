@@ -14,7 +14,7 @@
  * \note There are currently no specific codes, just zero and
  *       non-zero.
  */
-int m2_errno();
+extern int m2_errno();
 
 
 /**
@@ -26,24 +26,19 @@ int m2_errno();
  *
  * If m2_errno() is 0, then this function returns NULL
  */
-char * m2_strerror();
+extern char * m2_strerror();
 
-char * m2_strerror_cpy(char * dest);
+extern char * m2_strerror_cpy(char * dest);
 
 /**
  * Prints the message from m2_strerror to stderr
  */
-void m2_perror();
+extern void m2_perror();
 
-#ifndef MAKE_EXTERNAL_HEADER
-
-void m2_set_errstr(char * message, ...) __attribute__((format(printf, 1, 2)));
-void m2_set_errno(int n);
-
+extern void m2_set_errstr(char * message, ...) __attribute__((format(printf, 1, 2)));
+extern void m2_set_errno(int n);
 
 #define check(A,M,...) if (!(A)) { m2_set_errno(-1); m2_set_errstr((M), ##__VA_ARGS__); assert(!(A)); goto error; } else { m2_set_errno(0); }
 #define check_mem(A) check(A, "Out of memory")
-
-#endif
 
 #endif//_ERR_H_DEF

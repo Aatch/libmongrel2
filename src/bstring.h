@@ -1,2 +1,2 @@
-#include "bstring/bstraux.h"
 #include "bstring/bstrlib.h"
+#include "bstring/bstraux.h"

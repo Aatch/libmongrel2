@@ -5,6 +5,11 @@ RANLIB ?= ranlib
 
 LIBS := zmq
 
+ifdef DEBUG
+	CFLAGS += -g
+endif
+
+
 BUILD_DIR := build
 
 OBJ_DIR := $(BUILD_DIR)/obj
@@ -19,7 +24,7 @@ OBJS := $(SRC_FILES:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 DIRS := $(sort $(dir $(OBJS)))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CC) $(CFLAGS) -g -I$(SRC_DIR) -c -o $@ $<
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -c -o $@ $<
 
 .PHONY: clean all shared static include
 

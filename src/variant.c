@@ -49,29 +49,37 @@ void m2_variant_destroy(void * val) {
 }
 
 static inline variant_t * variant_val_create(m2_variant_tag tag) {
-    variant_t * val = (variant_t *)malloc(sizeof(*val));
+    variant_t * val = NULL;
+    val = (variant_t *)h_malloc(sizeof(*val));
     check_mem(val);
 
     val->type = tag;
 
     return val;
 error:
+    if (val) h_free(val);
     return NULL;
 }
 
 static hnode_t * hnode_alloc(void * unused) {
     (void)unused;
 
-    return (hnode_t *)malloc(sizeof(hnode_t));
+    return (hnode_t *)h_malloc(sizeof(hnode_t));
 }
 
 static void hnode_free(hnode_t * node, void * unused) {
     (void)unused;
 
     if (node) {
-        bdestroy((bstring)hnode_getkey(node));
-        m2_variant_destroy(hnode_get(node));
-        free(node);
+        bstring key = (bstring)hnode_getkey(node);
+        if (key) {
+            bdestroy(key);
+        }
+        void * data = hnode_get(node);
+        if (data) {
+            m2_variant_destroy(data);
+        }
+        h_free(node);
     }
 }
 
@@ -161,7 +169,8 @@ error:
     return NULL;
 }
 
-static inline variant_t * parse_string(const char * data, size_t len) {
+/* TNetstrings implementation */
+static inline variant_t * tns_parse_string(const char * data, size_t len) {
     variant_t * val = variant_val_create(m2_type_string);
     if (val)
         val->value.string = blk2bstr(data, len);
@@ -169,7 +178,7 @@ static inline variant_t * parse_string(const char * data, size_t len) {
     return val;
 }
 
-static inline variant_t * parse_integer(const char * data, size_t len, int base) {
+static inline variant_t * tns_parse_integer(const char * data, size_t len, int base) {
     variant_t * val = variant_val_create(m2_type_integer);
     if (val) {
         char * end = NULL;
@@ -185,7 +194,7 @@ error:
     return NULL;
 }
 
-static inline variant_t * parse_float(const char * data, size_t len) {
+static inline variant_t * tns_parse_float(const char * data, size_t len) {
     variant_t * val = variant_val_create(m2_type_float);
     if (val) {
         char * end = NULL;
@@ -201,7 +210,7 @@ error:
     return NULL;
 }
 
-static inline variant_t * parse_bool(const char * data, size_t len) {
+static inline variant_t * tns_parse_bool(const char * data, size_t len) {
     const char * i = data;
     int d = 0;
     if (len == 4) {
@@ -228,7 +237,7 @@ error:
     data = rest;\
 }
 
-static inline variant_t * parse_dict(const char * data, size_t len) {
+static inline variant_t * tns_parse_dict(const char * data, size_t len) {
 
     variant_t * val = (variant_t *)m2_variant_dict_new();
 
@@ -248,6 +257,7 @@ static inline variant_t * parse_dict(const char * data, size_t len) {
         rotate_buffer(data, rest, len, orig_len);
 
         m2_variant_dict_set(val, ((variant_t *)key)->value.string, item);
+        h_free(key);
 
         key = NULL;
         item = NULL;
@@ -262,7 +272,7 @@ error:
     return NULL;
 }
 
-static inline variant_t * parse_list(const char * data, size_t len) {
+static inline variant_t * tns_parse_list(const char * data, size_t len) {
 
     variant_t * val = (variant_t *)m2_variant_list_new();
 
@@ -315,22 +325,22 @@ void * m2_parse_tns(const char * data,
 
     switch (type) {
         case m2_type_string:
-            val = parse_string(valstr, vallen);
+            val = tns_parse_string(valstr, vallen);
             break;
         case m2_type_integer:
-            val = parse_integer(valstr, vallen, 10);
+            val = tns_parse_integer(valstr, vallen, 10);
             break;
         case m2_type_float:
-            val = parse_float(valstr, vallen);
+            val = tns_parse_float(valstr, vallen);
             break;
         case m2_type_boolean:
-            val = parse_bool(valstr, vallen);
+            val = tns_parse_bool(valstr, vallen);
             break;
         case m2_type_dict:
-            val = parse_dict(valstr, vallen);
+            val = tns_parse_dict(valstr, vallen);
             break;
         case m2_type_list:
-            val = parse_list(valstr, vallen);
+            val = tns_parse_list(valstr, vallen);
             break;
         case m2_type_null:
             check(vallen == 0, "Null must be represented as '0:~'");
@@ -347,4 +357,7 @@ void * m2_parse_tns(const char * data,
 error:
     return NULL;
 }
+
+/* JSON implementation */
+
 
