@@ -8,6 +8,14 @@
 
 #include "mongrel2.h"
 
+/*
+ * Static bstrings, to avoid needless allocation
+ */
+static const struct tagbstring type_str = bsStatic("type");
+static const struct tagbstring method_str = bsStatic("METHOD");
+static const struct tagbstring disconnect_str = bsStatic("disconnect");
+
+
 static int parse_request(m2_request_t * req, void * raw, int len);
 
 typedef struct ctx {
@@ -145,7 +153,7 @@ static int parse_request(m2_request_t * req, void * raw, int msglen) {
 
     struct tagbstring * strings = NULL;
     void * headers = NULL;
-    void * body = NULL;
+    variant_t * body = NULL;
 
     bstring uuid, conn_id, path;
     strings =
@@ -153,9 +161,9 @@ static int parse_request(m2_request_t * req, void * raw, int msglen) {
     check_mem(strings);
     hattach(strings, req);
 
-    uuid    = &strings[0];
-    conn_id = &strings[1];
-    path    = &strings[2];
+    uuid    = strings;
+    conn_id = strings+1;
+    path    = strings+2;
 
     // Set up the marker pointers
     unsigned char * p = data;
@@ -216,10 +224,8 @@ static int parse_request(m2_request_t * req, void * raw, int msglen) {
         body = m2_parse_tns((const char *)rest, len, NULL);
         check(body, "Error parsing request body: (%s)", m2_strerror_cpy(err));
 
-        if (body) {
-            req->body = m2_variant_get_string(body);
-            h_free(body);
-        }
+        req->body = m2_variant_get_string(body);
+        h_free(body);
     }
 
     req->conn_id = conn_id;
@@ -242,16 +248,40 @@ void m2_request_free(m2_request_t * req) {
     if (req) {
         m2_variant_destroy(req->headers);
         bdestroy(req->body);
-        bdestroy(req->conn_id);
-        bdestroy(req->path);
-        bdestroy(req->uuid);
+        //bdestroy(req->conn_id);
+        //bdestroy(req->path);
+        //bdestroy(req->uuid);
 
         h_free(req);
     }
 }
 
-void * m2_request_get_header(const m2_request_t * req, const_bstring name) {
+variant_t * m2_request_get_header(const m2_request_t * req, const_bstring name) {
     return m2_variant_dict_get(req->headers, name);
+}
+
+int m2_request_is_disconnected(const m2_request_t * req) {
+    int ret = 1;
+    if (req) {
+        ret = 0;
+        variant_t * method_v = m2_request_get_header(req, &method_str);
+        bstring method = NULL;
+        if (m2_variant_type(method_v) == m2_type_string) {
+            method = m2_variant_get_string(method_v);
+        }
+        if (method) {
+            if (biseqcstr(method, "JSON")) {
+                variant_t * body = m2_parse_json((char *)req->body->data);
+                variant_t * type = m2_variant_dict_get(body, &type_str);
+                if (type && m2_variant_type(type) == m2_type_string) {
+                    ret = biseq(m2_variant_get_string(type), &disconnect_str);
+                }
+                m2_variant_destroy(body);
+            }
+        }
+
+    }
+    return ret;
 }
 
 int m2_send(void * conn, const_bstring uuid, const_bstring conn_id, const_bstring msg) {

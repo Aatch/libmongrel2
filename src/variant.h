@@ -28,21 +28,23 @@ typedef enum {
     m2_type_invalid = 'Z',
 } m2_variant_tag;
 
-extern inline m2_variant_tag m2_variant_type(const void * val);
+typedef struct variant_s variant_t;
 
-void * m2_variant_string_new();
-void * m2_variant_integer_new();
-void * m2_variant_float_new();
-void * m2_variant_bool_new();
-void * m2_variant_null_new();
+extern inline m2_variant_tag m2_variant_type(const variant_t * val);
+
+variant_t * m2_variant_string_new();
+variant_t * m2_variant_integer_new();
+variant_t * m2_variant_float_new();
+variant_t * m2_variant_bool_new();
+variant_t * m2_variant_null_new();
 /**
  * Creates a new, empty dictionary variant type.
  */
-void * m2_variant_dict_new();
+variant_t * m2_variant_dict_new();
 /**
  * Creates a new, empty list variant type.
  */
-void * m2_variant_list_new();
+variant_t * m2_variant_list_new();
 
 /**
  * Frees the given variant type.
@@ -50,7 +52,7 @@ void * m2_variant_list_new();
  * If the variant is a compound type (dict or list) then
  * all of the items contained will also be freed.
  */
-void m2_variant_destroy(void * value);
+void m2_variant_destroy(variant_t * value);
 
 /**
  * Gets the string for the variant \a value.
@@ -59,7 +61,7 @@ void m2_variant_destroy(void * value);
  *
  * @returns NULL if \a value is not a string type.
  */
-bstring m2_variant_get_string(void * value);
+bstring m2_variant_get_string(variant_t * value);
 
 /**
  * Sets the entry \a key to \a item.
@@ -72,12 +74,12 @@ bstring m2_variant_get_string(void * value);
  *
  * @returns 0 on error, non-zero on success.
  */
-int m2_variant_dict_set(void * val, const_bstring key, void * item);
+int m2_variant_dict_set(variant_t * val, const_bstring key, variant_t * item);
 
 /**
  * Gets an item from a dictionary.
  */
-void * m2_variant_dict_get(const void * dict, const_bstring key);
+variant_t * m2_variant_dict_get(const variant_t * dict, const_bstring key);
 
 /**
  * Appends \a item to \a list
@@ -87,7 +89,7 @@ void * m2_variant_dict_get(const void * dict, const_bstring key);
  *
  * @returns 0 on error, non-zero on success.
  */
-int m2_variant_list_append(void * list, void * item);
+int m2_variant_list_append(variant_t * list, variant_t * item);
 
 // Parsing functions
 
@@ -102,11 +104,11 @@ int m2_variant_list_append(void * list, void * item);
  *                        of the first character after the parsed
  *                        range. Can be set to null to ignore.
  */
-void * m2_parse_tns(const char * data, size_t len, char ** rest);
+variant_t * m2_parse_tns(const char * data, size_t len, char ** rest);
 
-void * m2_parse_json(const char * data);
+variant_t * m2_parse_json(const char * data);
 
 // Dumping functions
-void m2_variant_dump_json(void * val);
+void m2_variant_dump_json(variant_t * val);
 
 #endif//_VARIANT_H_DEF

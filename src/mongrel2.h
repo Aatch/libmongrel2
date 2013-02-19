@@ -12,6 +12,7 @@
 #define _MONGREL2_H_DEF
 
 #include "bstring.h"
+#include "variant.h"
 
 /**
  * Creates a new context for using this library.
@@ -81,7 +82,7 @@ typedef struct {
     /// The path used to match
     bstring path;
     /// The headers from the request
-    void * headers;
+    variant_t * headers;
     /// The body of the request, NULL if there is no body
     bstring body;
 } m2_request_t;
@@ -102,6 +103,8 @@ m2_request_t * m2_recv(void * conn);
  */
 void m2_request_free(m2_request_t * req);
 
+int m2_request_is_disconnected(const m2_request_t * req);
+
 /**
  * Gets the header from the request, \a req by \a name.
  *
@@ -115,7 +118,7 @@ void m2_request_free(m2_request_t * req);
  *          m2_tns_get_* \endlink functions.
  *
  */
-void * m2_request_get_header(const m2_request_t * req, const_bstring name);
+variant_t * m2_request_get_header(const m2_request_t * req, const_bstring name);
 
 /**
  * Sends a reply on the connection using the given values.
@@ -139,6 +142,5 @@ int m2_send(void * conn, const_bstring uuid, const_bstring conn_id, const_bstrin
  * @returns The number of bytes sent or -1 on error
  */
 int m2_reply(const m2_request_t * req, const_bstring msg);
-
 
 #endif//_MONGREL2_H_DEF

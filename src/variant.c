@@ -1,13 +1,13 @@
-#include "variant.h"
 #include "bstring.h"
 #include "adt/hash.h"
 #include "adt/darray.h"
 #include "err.h"
 #include "json.h"
+#include "variant.h"
 
 #include <stdio.h>
 
-typedef struct {
+struct variant_s {
     m2_variant_tag type;
     union {
         bstring string;
@@ -17,20 +17,19 @@ typedef struct {
         hash_t * dict;
         darray_t * list;
     } value;
-} variant_t;
+};
 
-m2_variant_tag m2_variant_type(const void * val) {
+m2_variant_tag m2_variant_type(const variant_t * val) {
     if (val) {
-        return ((variant_t *)val)->type;
+        return (val)->type;
     } else {
         return m2_type_invalid;
     }
 }
 
-void m2_variant_destroy(void * val) {
+void m2_variant_destroy(variant_t * var) {
 
-    if (val) {
-        variant_t * var = (variant_t *) val;
+    if (var) {
 
         switch(var->type) {
             case m2_type_string:
@@ -47,7 +46,7 @@ void m2_variant_destroy(void * val) {
                 break;
         }
 
-        h_free(val);
+        h_free(var);
     }
 }
 
@@ -55,6 +54,8 @@ static inline variant_t * variant_val_create(m2_variant_tag tag) {
     variant_t * val = NULL;
     val = (variant_t *)h_malloc(sizeof(*val));
     check_mem(val);
+
+    memset(val, 0, sizeof(*val));
 
     val->type = tag;
 
@@ -86,24 +87,24 @@ static void hnode_free(hnode_t * node, void * unused) {
     }
 }
 
-void * m2_variant_string_new() {
+variant_t * m2_variant_string_new() {
     variant_t * val = variant_val_create(m2_type_string);
     return val;
 }
-void * m2_variant_integer_new() {
+variant_t * m2_variant_integer_new() {
     return variant_val_create(m2_type_integer);
 }
-void * m2_variant_float_new() {
+variant_t * m2_variant_float_new() {
     return variant_val_create(m2_type_float);
 }
-void * m2_variant_bool_new() {
+variant_t * m2_variant_bool_new() {
     return variant_val_create(m2_type_boolean);
 }
-void * m2_variant_null_new() {
+variant_t * m2_variant_null_new() {
     return variant_val_create(m2_type_null);
 }
 
-void * m2_variant_dict_new() {
+variant_t * m2_variant_dict_new() {
     variant_t * val = NULL;
     val = variant_val_create(m2_type_dict);
     if (val) {
@@ -114,7 +115,7 @@ void * m2_variant_dict_new() {
     return val;
 }
 
-void * m2_variant_list_new() {
+variant_t * m2_variant_list_new() {
     variant_t * val = NULL;
     val = variant_val_create(m2_type_list);
     if (val) {
@@ -124,10 +125,8 @@ void * m2_variant_list_new() {
     return val;
 }
 
-int m2_variant_dict_set(void * val, const_bstring key, void * item) {
-    check(m2_variant_type(val) == m2_type_dict, "val is not a dictionary");
-
-    variant_t * dict = (variant_t *)val;
+int m2_variant_dict_set(variant_t * dict, const_bstring key, variant_t * item) {
+    check(m2_variant_type(dict) == m2_type_dict, "val is not a dictionary");
 
     hnode_t * node = NULL;
     node = hash_lookup(dict->value.dict, key);
@@ -142,10 +141,8 @@ error:
     return 0;
 }
 
-void * m2_variant_dict_get(const void * val, const_bstring key) {
-    check(m2_variant_type(val) == m2_type_dict, "val is not a dictionary");
-
-    variant_t * dict = (variant_t *)val;
+variant_t * m2_variant_dict_get(const variant_t * dict, const_bstring key) {
+    check(m2_variant_type(dict) == m2_type_dict, "val is not a dictionary");
 
     return hash_lookup(dict->value.dict, key)->hash_data;
 
@@ -153,10 +150,8 @@ error:
     return NULL;
 }
 
-int m2_variant_list_append(void * val, void * item) {
-    check(m2_variant_type(val) == m2_type_list, "val is not a list");
-
-    variant_t * list = (variant_t *)val;
+int m2_variant_list_append(variant_t * list, variant_t * item) {
+    check(m2_variant_type(list) == m2_type_list, "val is not a list");
 
     darray_push(list->value.list, item);
 
@@ -165,9 +160,9 @@ error:
     return 0;
 }
 
-bstring m2_variant_get_string(void * value) {
+bstring m2_variant_get_string(variant_t * value) {
     check(m2_variant_type(value) == m2_type_string, "Type is not a string");
-    return ((variant_t *)value)->value.string;
+    return value->value.string;
 error:
     return NULL;
 }
@@ -301,7 +296,7 @@ error:
 
     return NULL;
 }
-void * m2_parse_tns(const char * data,
+variant_t * m2_parse_tns(const char * data,
         size_t len, char ** rest) {
 
     void * val = NULL;
@@ -407,7 +402,7 @@ static variant_t * json_val_to_variant(const json_value * jval) {
     return val;
 }
 
-void * m2_parse_json(const char * str) {
+variant_t * m2_parse_json(const char * str) {
     json_value * val = json_parse(str);
 
     void * v = (void *)json_val_to_variant(val);
@@ -417,8 +412,7 @@ void * m2_parse_json(const char * str) {
     return v;
 }
 
-void m2_variant_dump_json(void * val) {
-    variant_t * var = (variant_t *)val;
+void m2_variant_dump_json(variant_t * var) {
     int first = 0;
     switch(var->type) {
         case m2_type_dict:
