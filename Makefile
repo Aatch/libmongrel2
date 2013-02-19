@@ -32,8 +32,6 @@ all: shared static include
 
 shared: $(BUILD_DIR)/libmongrel2.so
 
-static: $(BUILD_DIR)/libmongrel2.a
-
 include:
 
 clean:
@@ -41,10 +39,6 @@ clean:
 
 $(BUILD_DIR)/libmongrel2.so: $(OBJS)
 	$(LD) --export-dynamic -shared -lc $(addprefix -l,$(LIBS)) -o $@ $^
-
-$(BUILD_DIR)/libmongrel2.a: $(OBJS)
-	$(AR) cr $@ $?
-	$(RANLIB) $(BUILD_DIR)/libmongrel2.a
 
 $(OBJS): | dirs $(DIRS)
 
